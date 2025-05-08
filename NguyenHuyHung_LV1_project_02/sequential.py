@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 URL = "https://api.tiki.vn/product-detail/api/v1/products/{}"
 HEADERS = {'User-Agent': 'Mozilla/5.0'}
 
-SUCCESS_DIR = "products_data_seq"
+SUCCESS_DIR = "products_seq"
 ERROR_DIR = "errors_seq"
 os.makedirs(SUCCESS_DIR, exist_ok=True)
 os.makedirs(ERROR_DIR, exist_ok=True)
@@ -23,7 +23,7 @@ def clean_description(description):
     return text
 
 def save_errors(error_type, product_id):
-    error_file = os.path.join(ERROR_DIR, "error_sq_product.txt")
+    error_file = os.path.join(ERROR_DIR, f"{error_type}.txt")
     with open(error_file, "a", encoding="utf-8") as f:
         f.write(f"{product_id}\n")
     print(f"Saved error ID {product_id} to {error_file}")
@@ -60,34 +60,33 @@ def get_product_info(product_id, retries=3):
         time.sleep(1)
 
     save_errors(error_type, product_id)
-    return error_type, {"id": product_id}
+    return ("unknow_error", {"id": product_id})
 
 def fetch_product(product_ids):
-    success_list = []
-    error_count_dict = {}
+    success_product = []
+    error_products = {}
     file_index = 1
 
     for idx, pid in enumerate(product_ids, 1):
         status, result = get_product_info(pid)
-
         if status == "success":
-            success_list.append(result)
+            success_product.append(result)
         else:
-            error_count_dict[status] = error_count_dict.get(status, 0) + 1
+            error_products[status] = error_products.get(status, 0) + 1
 
-        if len(success_list) == 1000:
-            save_product_to_file(success_list, file_index)
-            success_list.clear()
-            file_index += 1
+            if len(success_product) == 1000:
+                save_product_to_file(success_product, file_index)
+                success_product.clear()
+                file_index += 1
 
-    if success_list:
-        save_product_to_file(success_list, file_index)
+    if success_product:
+        save_product_to_file(success_product, file_index)
 
-    total_success = (file_index - 1) * 1000 + len(success_list)
-    total_errors = sum(error_count_dict.values())
+    total_success = (file_index - 1) * 1000 + len(success_product)
+    total_errors = sum(error_products.values())
     print(f"Total success: {total_success}")
     print(f"Total errors: {total_errors}")
-    for err_type, count in error_count_dict.items():
+    for err_type, count in error_products.items():
         print(f"   - {err_type}: {count}")
 
 if __name__ == "__main__":
